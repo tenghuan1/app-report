@@ -1,12 +1,12 @@
 /**
- * 柱状图组件
+ * 柱状图组件（home-table专用）
  * @component
- * @description 用于展示柱状图数据，支持多系列数据和排序配置
+ * @description 用于展示柱状图数据，接收父组件传递的数据
  * @props {Object} info - 组件配置信息
- * @props {string} info.CHART_CONFIG - JSON格式的配置字符串，包含BAR_CHART_X、BAR_CHART_Y等字段
- * @props {string} info.CHART_CONFIG.BAR_CHART_X - X轴字段名
- * @props {string} info.CHART_CONFIG.BAR_CHART_Y - Y轴字段名，多个字段用"|"分隔
- * @example <BarChart :info="item" />
+ * @props {string} info.barChartX - X轴字段名
+ * @props {string} info.barChartY - Y轴字段名，多个字段用"|"分隔
+ * @props {Array} data - 图表数据数组
+ * @example <BarChart :info="tab" :data="chartData" />
  */
 <template>
   <div class="bar-chart" ref="chartRef"></div>
@@ -15,78 +15,20 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
-import api from '@/api/index';
 
 const props = defineProps({
   info: {
     type: Object,
     default: () => ({})
   },
-  params: {
-    type: Object,
-    default: () => ({})
+  data: {
+    type: Array,
+    default: () => []
   }
 });
 
 const chartRef = ref(null);
 let chartInstance = null;
-const localData = ref([]);
-const refreshInterval = ref(null);
-const refreshEnabled = ref(true);
-const intervalTime = ref(5); // 默认5秒
-
-// 加载刷新设置
-const loadRefreshSettings = () => {
-  const savedInterval = localStorage.getItem("refreshInterval");
-  const savedEnabled = localStorage.getItem("refreshEnabled");
-
-  if (savedInterval) {
-    intervalTime.value = parseInt(savedInterval);
-  }
-  if (savedEnabled !== null) {
-    refreshEnabled.value = savedEnabled === "true";
-  }
-};
-
-// 设置自动刷新
-const setupAutoRefresh = () => {
-  // 清除现有的定时器
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value);
-  }
-
-  // 如果启用了自动刷新，设置新的定时器
-  if (refreshEnabled.value) {
-    refreshInterval.value = setInterval(() => {
-      fetchData();
-    }, intervalTime.value * 1000);
-  }
-};
-
-// 刷新设置变化处理函数
-const handleRefreshSettingsChange = () => {
-  loadRefreshSettings();
-  setupAutoRefresh();
-};
-
-// 从后台获取数据
-const fetchData = async () => {
-  const currentSqlId = props.info?.sqlId || props.info?.SQL_ID;
-  if (!currentSqlId) return;
-
-  try {
-    const response = await api.executeData(currentSqlId, props.params);
-    console.log('BarChart data:', response);
-
-    if (response && Array.isArray(response) && response.length > 0) {
-      localData.value = JSON.parse(response[0].DATA || '[]');
-      console.log('BarChart data:-----', localData.value);
-      updateChart();
-    }
-  } catch (error) {
-    console.error('Failed to fetch BarChart data:', error);
-  }
-};
 
 // 解析日期字符串
 const parseDate = (dateStr) => {
@@ -155,48 +97,35 @@ const initChart = () => {
   chartInstance = echarts.init(chartRef.value);
   updateChart();
 
+  // 强制调整大小，确保图表占满容器
+  setTimeout(() => {
+    chartInstance?.resize();
+  }, 100);
+
   window.addEventListener('resize', handleResize);
-  // 监听主题变化
   window.addEventListener('themeChange', updateChart);
-
-  // 加载刷新设置
-  loadRefreshSettings();
-
-  // 设置自动刷新
-  setupAutoRefresh();
-
-  // 监听刷新设置变化
-  window.addEventListener('refresh-settings-updated', handleRefreshSettingsChange);
 };
 
 const updateChart = () => {
   if (!chartInstance) return;
 
-  const data = localData.value;
+  const data = props.data || [];
 
   // 使用默认颜色
   const primaryColor = '#409EFF';
   const borderColor = '#dcdfe6';
   const bgColor = '#ffffff';
 
-  // 从CHART_CONFIG获取配置
-  let chartConfig = null;
-  try {
-    chartConfig = props.info?.CHART_CONFIG ? JSON.parse(props.info.CHART_CONFIG) : null;
-  } catch (e) {
-    console.error('Failed to parse CHART_CONFIG:', e);
-  }
+  // 获取柱状图配置
+  const xAxisField = props.info?.barChartX || '';
+  const yAxisFields = (props.info?.barChartY || '').split('|').filter(field => field);
 
-  // 获取柱状图配置（支持大小写不敏感）
-  const xAxisField = chartConfig?.barChartX || '';
-  const yAxisFields = (chartConfig?.barChartY || '').split('|').filter(field => field);
-
-  if (!xAxisField || yAxisFields.length === 0) {
-    // 无配置时显示提示信息
+  if (!xAxisField || yAxisFields.length === 0 || data.length === 0) {
+    // 无配置或数据时显示提示信息
     const option = {
       backgroundColor: 'transparent',
       title: {
-        text: '未配置柱状图参数',
+        text: '未配置柱状图参数或无数据',
         textStyle: {
           color: primaryColor
         }
@@ -242,7 +171,6 @@ const updateChart = () => {
           yData[xValue] = 0;
         }
         yData[xValue] += yValue;
-        // 保留两位小数
         yData[xValue] = parseFloat(yData[xValue].toFixed(2));
       }
     });
@@ -254,10 +182,10 @@ const updateChart = () => {
   });
 
   // 解析排序配置
-  const sortConfig = chartConfig?.barChartXSort || props.info?.BAR_CHART_X_SORT || props.info?.bar_chart_x_sort || '';
-  let sortType = 'field'; // 'field' 或 'x'
+  const sortConfig = props.info?.barChartXSort || '';
+  let sortType = 'field';
   let sortField = '';
-  let sortOrder = 'desc'; // 'asc' 或 'desc'
+  let sortOrder = 'desc';
 
   if (sortConfig) {
     const parts = sortConfig.split(':');
@@ -273,20 +201,16 @@ const updateChart = () => {
 
   // 根据配置进行排序
   if (sortType === 'x') {
-    // 按X轴排序
     xAxisData.sort((a, b) => {
-      // 尝试解析日期字符串
       const dateA = parseDate(a);
       const dateB = parseDate(b);
 
       if (dateA !== null && dateB !== null) {
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       }
-      // 非日期按字符串排序
       return sortOrder === 'asc' ? a.localeCompare(b) : b.localeCompare(a);
     });
   } else if (sortType === 'field' && sortField) {
-    // 按指定字段排序
     const targetSeries = series.find(s => s.name === sortField);
     if (targetSeries) {
       xAxisData.sort((a, b) => {
@@ -296,13 +220,12 @@ const updateChart = () => {
       });
     }
   } else {
-    // 默认按第一个Y轴值倒序排列
     if (series.length > 0) {
       const firstSeries = series[0];
       xAxisData.sort((a, b) => {
         const valueA = firstSeries.data[a] || 0;
         const valueB = firstSeries.data[b] || 0;
-        return valueB - valueA; // 倒序排列
+        return valueB - valueA;
       });
     }
   }
@@ -401,64 +324,44 @@ const updateChart = () => {
   };
 
   chartInstance.setOption(option, true);
-
-  // 调整图表大小
+  // 确保图表占满容器
   chartInstance.resize();
-
-  // 延迟再次调整大小，确保容器尺寸稳定
+  
+  // 再次调整大小，确保图表完全适应容器
   setTimeout(() => {
     chartInstance?.resize();
-  }, 100);
+  }, 50);
 };
 
 const handleResize = () => {
   chartInstance?.resize();
 };
 
+// 监听数据变化
 watch(
-  () => props.info?.sqlId || props.info?.SQL_ID,
-  (newSqlId) => {
-    if (newSqlId) {
-      fetchData();
-    }
-  }
+  () => props.data,
+  () => {
+    updateChart();
+  },
+  { deep: true }
 );
 
+// 监听配置变化
 watch(
+  () => [props.info?.barChartX, props.info?.barChartY],
   () => {
-    // 监听CHART_CONFIG和BAR_CHART配置的变化
-    let chartConfig = null;
-    try {
-      chartConfig = props.info?.CHART_CONFIG ? JSON.parse(props.info.CHART_CONFIG) : null;
-    } catch (e) {
-      return props.info?.BAR_CHART_X;
-    }
-    return chartConfig?.barChartX || props.info?.BAR_CHART_X;
-  },
-  () => {
-    if (props.info?.SQL_ID) {
-      fetchData();
-    }
+    updateChart();
   }
 );
 
 onMounted(() => {
   initChart();
-  if (props.info?.SQL_ID) {
-    fetchData();
-  }
+  updateChart();
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
   window.removeEventListener('themeChange', updateChart);
-  window.removeEventListener('refresh-settings-updated', handleRefreshSettingsChange);
-
-  // 清理定时器
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value);
-  }
-
   chartInstance?.dispose();
 });
 </script>

@@ -21,6 +21,10 @@ const props = defineProps({
   info: {
     type: Object,
     default: () => ({})
+  },
+  params: {
+    type: Object,
+    default: () => ({})
   }
 });
 
@@ -67,11 +71,11 @@ const handleRefreshSettingsChange = () => {
 
 // 从后台获取数据
 const fetchData = async () => {
-  const currentSqlId = props.info?.SQL_ID;
+  const currentSqlId = props.info?.sqlId || props.info?.SQL_ID;
   if (!currentSqlId) return;
   
   try {
-    const response = await api.executeData(currentSqlId, {});
+    const response = await api.executeData(currentSqlId, props.params);
     console.log('PieChart data:', response);
     console.log('PieChart info:', props.info);
     
@@ -284,7 +288,7 @@ const handleResize = () => {
 };
 
 watch(
-  () => props.info?.SQL_ID,
+  () => props.info?.sqlId || props.info?.SQL_ID,
   (newSqlId) => {
     if (newSqlId) {
       fetchData();
