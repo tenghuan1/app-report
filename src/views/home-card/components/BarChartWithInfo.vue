@@ -252,6 +252,13 @@ const fetchData = async () => {
   }
 };
 
+// 处理tab切换
+const handleTabChange = () => {
+  setTimeout(() => {
+    chartInstance.value?.resize();
+  }, 100);
+};
+
 onMounted(() => {
   loadRefreshSettings();
   setupAutoRefresh();
@@ -261,6 +268,8 @@ onMounted(() => {
   if (props.info?.SQL_ID) {
     fetchData();
   }
+  // 监听tab切换事件
+  window.addEventListener('tab-changed', handleTabChange);
 });
 
 onUnmounted(() => {
@@ -268,6 +277,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', () => {
     chartInstance.value?.resize();
   });
+  window.removeEventListener('tab-changed', handleTabChange);
   
   if (refreshInterval.value) {
     clearInterval(refreshInterval.value);

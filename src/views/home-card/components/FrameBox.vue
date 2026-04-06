@@ -173,6 +173,7 @@ const props = defineProps({
   
   .frame-content {
     flex: 1;
+    min-height: 0;
     padding: 12px;
     box-sizing: border-box;
     overflow: hidden;

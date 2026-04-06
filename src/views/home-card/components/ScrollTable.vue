@@ -8,7 +8,7 @@
  */
 <template>
   <div class="scroll-table-container" ref="containerRef">
-    <ScrollBoard :config="config" :key="forceUpdateKey" style="width:100%;height:100%" />
+    <ScrollBoard :config="config" style="width:100%;height:100%" />
   </div>
 </template>
 
@@ -42,13 +42,15 @@ const calculateRowNum = () => {
   const availableHeight = containerHeight - headerHeight;
   const calculatedRows = Math.floor(availableHeight / rowHeight);
   
-  rowNum.value = Math.max(1, calculatedRows);
-  forceUpdateKey.value++;
+  const newRowNum = Math.max(1, calculatedRows);
+  // 只有当rowNum真正变化时才更新，避免无限循环
+  if (newRowNum !== rowNum.value) {
+    rowNum.value = newRowNum;
+    forceUpdateKey.value++;
+  }
 };
 
 const config = computed(() => {
-  forceUpdateKey.value;
-  
   const data = localData.value;
   
   if (!data || data.length === 0) {
@@ -159,10 +161,6 @@ onMounted(() => {
   nextTick(() => {
     calculateRowNum();
   });
-  
-  setTimeout(() => {
-    forceUpdateKey.value++;
-  }, 100);
 });
 
 onUnmounted(() => {
@@ -180,9 +178,11 @@ onUnmounted(() => {
 .scroll-table-container {
   width: 100%;
   height: 100%;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* 确保表格内容字体颜色为黑色 */

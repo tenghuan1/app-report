@@ -10,7 +10,7 @@
  */
 <template>
   <div class="ranking-board-container" ref="containerRef">
-    <ScrollRankingBoard :config="config" :key="forceUpdateKey" style="width:100%;height:100%" />
+    <ScrollRankingBoard :config="config" style="width:100%;height:100%" />
   </div>
 </template>
 
@@ -31,23 +31,38 @@ const refreshInterval = ref(null);
 const refreshEnabled = ref(true);
 const intervalTime = ref(5);
 const containerRef = ref(null);
-const containerHeight = ref(300);
+const containerHeight = ref(0); // 初始值为0，等待实际高度计算
+const rowNum = ref(5); // 使用ref存储rowNum，避免频繁变化
 const forceUpdateKey = ref(0); // 用于强制更新组件
 
 // 根据容器高度计算每页显示的行数
 const calculateRowNum = (height) => {
+  // 如果高度为0，返回一个合理的默认值
+  if (!height || height <= 0) {
+    return 5;
+  }
   const rowHeight = 35;
   const headerHeight = 40;
   const availableHeight = height - headerHeight;
   const rowNum = Math.floor(availableHeight / rowHeight);
-  return Math.max(3, Math.min(rowNum, 10));
+  // 至少显示3行，不限制最大行数，让组件根据高度自动适配
+  return Math.max(3, rowNum);
 };
 
-// 更新容器高度
-const updateContainerHeight = () => {
+// 更新容器高度和rowNum
+const updateContainerHeight = (force = false) => {
   nextTick(() => {
     if (containerRef.value) {
-      containerHeight.value = containerRef.value.offsetHeight;
+      const newHeight = containerRef.value.offsetHeight;
+      // 强制更新或高度变化超过5像素时才更新
+      if (force || Math.abs(newHeight - containerHeight.value) > 5) {
+        containerHeight.value = newHeight;
+        // 同时更新rowNum
+        const newRowNum = calculateRowNum(newHeight);
+        if (newRowNum !== rowNum.value) {
+          rowNum.value = newRowNum;
+        }
+      }
     }
   });
 };
@@ -58,15 +73,12 @@ const handleResize = () => {
 };
 
 const config = computed(() => {
-  // 依赖forceUpdateKey，确保主题变化后config能够重新计算
-  forceUpdateKey.value; 
-  
   const data = localData.value;
 
   if (!data || data.length === 0) {
     return {
       data: [],
-      rowNum: calculateRowNum(containerHeight.value),
+      rowNum: rowNum.value,
       waitTime: 4000,
       carousel: 'page',
       unit: ''
@@ -98,7 +110,7 @@ const config = computed(() => {
   if (!rankingNameField || !rankingCountField) {
     return {
       data: [],
-      rowNum: calculateRowNum(containerHeight.value),
+      rowNum: rowNum.value,
       waitTime: 2000,
       unit: '',
       color: '#fff'
@@ -136,7 +148,7 @@ const config = computed(() => {
 
   return {
     data: rankingData,
-    rowNum: calculateRowNum(containerHeight.value),
+    rowNum: rowNum.value,
     waitTime: 2000,
     unit: '',
     color: primaryColor,
@@ -174,8 +186,7 @@ const handleRefreshSettingsChange = () => {
 };
 
 const handleThemeChange = () => {
-  // 主题变化时，强制重新计算config，确保颜色立即更新
-  forceUpdateKey.value++;
+  // 主题变化时，config会自动重新计算
 };
 
 const fetchData = async () => {
@@ -208,10 +219,10 @@ onMounted(() => {
     fetchData();
   }
   
-  // 初始化容器高度
-  nextTick(() => {
-    updateContainerHeight();
-  });
+  // 初始化容器高度，强制更新
+  setTimeout(() => {
+    updateContainerHeight(true);
+  }, 100);
 });
 
 onUnmounted(() => {
@@ -229,8 +240,18 @@ onUnmounted(() => {
 .ranking-board-container {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 150px;
+  overflow: hidden;
+}
+
+.ranking-board-container :deep(.dv-scroll-ranking-board) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 确保行高固定，避免间隔问题 */
+.ranking-board-container :deep(.row-item) {
+  height: 35px !important;
+  line-height: 35px !important;
 }
 </style>

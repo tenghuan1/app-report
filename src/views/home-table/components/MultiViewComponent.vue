@@ -115,7 +115,6 @@ import TableView from './TableView.vue';
 import PieChart from './PieChart.vue';
 import BarChart from './BarChart.vue';
 import DetailDialog from './DetailDialog.vue';
-import { useMenuStore } from '../../../stores/menu';
 import api from '@/api/index';
 
 const props = defineProps({
@@ -124,8 +123,6 @@ const props = defineProps({
     default: () => ({})
   }
 });
-
-const menuStore = useMenuStore();
 
 const activeTab = ref('0');
 const showDetailDialog = ref(false);
@@ -138,18 +135,9 @@ const chartData = ref([]);
 const loading = ref(false);
 const frontendFilterForm = ref({});
 
-const currentMenuConfig = computed(() => {
-  return menuStore.currentMenu || {};
-});
-
+// 直接从props.info获取配置
 const chartConfig = computed(() => {
   try {
-    // 优先使用从menuStore获取的当前菜单配置
-    const currentMenu = menuStore.currentMenu;
-    if (currentMenu?.CHART_CONFIG) {
-      return JSON.parse(currentMenu.CHART_CONFIG);
-    }
-    // 其次使用props传入的配置
     return props.info?.CHART_CONFIG ? JSON.parse(props.info.CHART_CONFIG) : {};
   } catch (e) {
     console.error('Failed to parse CHART_CONFIG:', e);
@@ -159,12 +147,6 @@ const chartConfig = computed(() => {
 
 const filterConfig = computed(() => {
   try {
-    // 优先使用从menuStore获取的当前菜单配置
-    const currentMenu = menuStore.currentMenu;
-    if (currentMenu?.FILTER_SQL) {
-      return JSON.parse(currentMenu.FILTER_SQL);
-    }
-    // 其次使用props传入的配置
     return props.info?.FILTER_SQL ? JSON.parse(props.info.FILTER_SQL) : [];
   } catch (e) {
     console.error('Failed to parse FILTER_SQL:', e);
@@ -185,8 +167,8 @@ const currentTabConfig = computed(() => {
 // 前台过滤配置（全局配置，所有tab共享）
 const frontendFilterConfig = computed(() => {
   try {
-    if (currentMenuConfig.value?.FILTER_COLUMN) {
-      return JSON.parse(currentMenuConfig.value?.FILTER_COLUMN);
+    if (props.info?.FILTER_COLUMN) {
+      return JSON.parse(props.info.FILTER_COLUMN);
     }
     return [];
   } catch (e) {
@@ -259,7 +241,7 @@ const rawData = ref([]);
 
 // 查询数据
 const fetchData = async () => {
-  const sqlId = currentMenuConfig.value.SQL_ID;
+  const sqlId = props.info?.SQL_ID;
   if (!sqlId) return;
 
   loading.value = true;
@@ -387,12 +369,12 @@ const handleRowDblClick = (row, tabConfig) => {
   showDetailDialog.value = true;
 };
 
-// 监听 SQL_ID 变化，自动查询数据
+// 监听 props.info 变化，自动查询数据
 watch(
-  () => currentMenuConfig.value.SQL_ID,
-  (newSqlId) => {
-    if (newSqlId) {
-      console.log('SQL_ID changed, fetching data:', newSqlId);
+  () => props.info,
+  (newInfo) => {
+    if (newInfo?.SQL_ID) {
+      console.log('Info changed, fetching data:', newInfo);
       // 重新初始化过滤器表单，确保默认值正确显示
       initFilterForm();
       initFrontendFilterForm();
@@ -400,7 +382,7 @@ watch(
       fetchData();
     }
   },
-  { immediate: true }
+  { immediate: true, deep: true }
 );
 
 onMounted(() => {

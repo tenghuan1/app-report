@@ -442,17 +442,27 @@ watch(
   }
 );
 
+// 处理tab切换
+const handleTabChange = () => {
+  setTimeout(() => {
+    chartInstance?.resize();
+  }, 100);
+};
+
 onMounted(() => {
   initChart();
   if (props.info?.SQL_ID) {
     fetchData();
   }
+  // 监听tab切换事件
+  window.addEventListener('tab-changed', handleTabChange);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
   window.removeEventListener('themeChange', updateChart);
   window.removeEventListener('refresh-settings-updated', handleRefreshSettingsChange);
+  window.removeEventListener('tab-changed', handleTabChange);
 
   // 清理定时器
   if (refreshInterval.value) {

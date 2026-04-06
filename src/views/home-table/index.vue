@@ -1,22 +1,17 @@
 <template>
   <div class="multi-view-page">
-    <MultiViewComponent :info="pageConfig" />
+    <MultiViewComponent :info="props.info" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
 import MultiViewComponent from './components/MultiViewComponent.vue';
-import { useMenuStore } from "@/stores/menu";
 
-const menuStore = useMenuStore();
-// 从Pinia store获取菜单信息
-const routeInfo = computed(() => {
-    return menuStore.getCurrentMenu;
-});
-
-const pageConfig = ref({
-  CHART_CONFIG: JSON.stringify(routeInfo.value?.CHART_CONFIG || '{}')
+const props = defineProps({
+    info: {
+        type: Object,
+        default: null
+    }
 });
 </script>
 

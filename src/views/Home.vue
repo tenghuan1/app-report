@@ -34,12 +34,38 @@
       </div>
     </div>
 
-    <!-- 主内容区 -->
-    <div class="home__main-container">
-      <!-- 右侧内容区域 -->
-      <div class="home__content-area">
-        <router-view />
-      </div>
+    <!-- Tab 页签区域 -->
+    <div class="home__tabs-container">
+      <el-tabs
+        v-model="activeTab"
+        type="card"
+        closable
+        @tab-remove="handleTabRemove"
+        @tab-change="handleTabChange"
+        class="home__tabs"
+      >
+        <el-tab-pane
+          v-for="tab in tabs"
+          :key="tab.key"
+          :label="tab.title"
+          :name="tab.key"
+        >
+          <div v-show="activeTab === tab.key" class="tab-content">
+            <!-- 首页卡片 -->
+            <HomeCard v-if="tab.component === 'HomeCard'" :info="tab.info" />
+            <!-- 首页表格 -->
+            <HomeTable v-else-if="tab.component === 'HomeTable'" :info="tab.info" />
+            <!-- 其他页面 -->
+            <div v-else-if="tab.component === 'HomeBi'" class="tab-placeholder">
+              <el-empty description="BI 页面开发中..." />
+            </div>
+            <!-- 通用页面 -->
+            <div v-else class="tab-placeholder">
+              <el-empty :description="`${tab.title} 页面开发中...`" />
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
     <!-- 设置对话框 -->
@@ -76,17 +102,21 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Setting } from '@element-plus/icons-vue'
 import api from '../api'
-import { useMenuStore } from '../stores/menu'
+import HomeCard from '../views/home-card/index.vue'
+import HomeTable from '../views/home-table/index.vue'
 
 const router = useRouter()
 const menuItems = ref([])
 const activeMenu = ref("")
-const menuStore = useMenuStore()
+
+// Tab 管理
+const tabs = ref([])
+const activeTab = ref('')
 
 // 设置对话框显示状态
 const settingsVisible = ref(false)
@@ -154,40 +184,81 @@ const handleLogout = () => {
   })
 }
 
-// 处理菜单选择
+// 处理菜单选择 - 阻止路由跳转
 const handleMenuSelect = (index) => {
-  // 如果不是home-card路由，正常跳转
-  if (!index.includes('/home-card/')) {
-    router.push(index)
+  // 不再进行路由跳转，只更新菜单状态
+}
+
+// 处理菜单项点击 - 所有菜单项都添加到Tab
+const handleMenuItemClick = (menuItem) => {
+  // 检查是否已存在相同类型和ID的tab
+  const existingTab = tabs.value.find(tab => 
+    tab.component === getComponentName(menuItem) && 
+    tab.info?.id === menuItem.id
+  )
+  
+  if (existingTab) {
+    // 如果已存在，切换到该tab
+    activeTab.value = existingTab.key
+    ElMessage.info(`已切换到 ${menuItem.name}`)
+    return
+  }
+  
+  // 确定组件类型
+  const component = getComponentName(menuItem)
+  
+  // 添加新的tab
+  const newTab = {
+    key: `${component}_${menuItem.id || Date.now()}`,
+    title: menuItem.name,
+    component: component,
+    info: menuItem,
+    closable: true
+  }
+  
+  tabs.value.push(newTab)
+  activeTab.value = newTab.key
+  
+  console.log('添加新tab:', newTab)
+  console.log('当前tabs:', tabs.value)
+}
+
+// 根据菜单类型获取组件名称
+const getComponentName = (menuItem) => {
+  if (menuItem?.chartType === 'HomeCard') {
+    return 'HomeCard'
+  } else if (menuItem?.chartType === 'HomeTable') {
+    return 'HomeTable'
+  } else if (menuItem?.chartType === 'HomeBi') {
+    return 'HomeBi'
+  } else {
+    return 'GenericPage'
   }
 }
 
-// 处理菜单项点击
-const handleMenuItemClick = (menuItem) => {
-  // 检查是否是home类型
-  if (menuItem?.chartType === 'HomeCard') {
-    // 存储菜单信息到Pinia store
-    menuStore.setCurrentMenu(menuItem.info)
-    // 跳转到home-card页面
-    router.push('/home-card')
-  } 
-  else if (menuItem?.chartType === 'HomeBi') {
-    // 存储菜单信息到Pinia store
-    menuStore.setCurrentMenu(menuItem.info)
-    // 跳转到home-bi页面
-    router.push('/home-bi')
+// 处理tab切换
+const handleTabChange = (tabKey) => {
+  activeTab.value = tabKey
+  console.log('切换到tab:', tabKey)
+  
+  // 触发tab切换事件，通知图表组件调整大小
+  nextTick(() => {
+    window.dispatchEvent(new CustomEvent('tab-changed', { detail: tabKey }))
+  })
+}
+
+// 处理tab移除
+const handleTabRemove = (tabKey) => {
+  const index = tabs.value.findIndex(tab => tab.key === tabKey)
+  if (index > -1) {
+    tabs.value.splice(index, 1)
+    
+    // 如果移除的是当前激活的tab，切换到前一个tab
+    if (activeTab.value === tabKey && tabs.value.length > 0) {
+      activeTab.value = tabs.value[tabs.value.length - 1].key
+    }
   }
-  else if (menuItem?.chartType === 'HomeTable') {
-    // 存储菜单信息到Pinia store
-    menuStore.setCurrentMenu(menuItem.info)
-    // 跳转到home-table页面
-    router.push('/home-table')
-  }
-  else {
-    // 普通菜单项，正常跳转
-    const path = menuItem.isHome ? '/' : `/page/${menuItem.id}`
-    router.push(path)
-  }
+  console.log('移除tab后:', tabs.value)
 }
 
 // 加载菜单配置
@@ -234,11 +305,33 @@ const loadMenuConfig = async () => {
   }
 };
 
+// 查找第一个可访问的菜单项
+const findFirstAccessibleMenu = () => {
+  // 遍历所有菜单，找到第一个可访问的菜单项
+  for (const menu of menuItems.value) {
+    // 如果菜单有子菜单，返回第一个子菜单
+    if (menu.children && menu.children.length > 0) {
+      return menu.children[0];
+    }
+    // 如果菜单没有子菜单，且有chartType，返回该菜单
+    else if (menu.chartType) {
+      return menu;
+    }
+  }
+  return null;
+};
+
 onMounted(async () => {
   // 加载菜单配置
-  await loadMenuConfig();
-
-
+  await loadMenuConfig()
+  
+  // 默认打开第一个可访问的菜单
+  const firstMenu = findFirstAccessibleMenu();
+  if (firstMenu) {
+    handleMenuItemClick(firstMenu);
+    // 更新活跃菜单
+    activeMenu.value = `/page/${firstMenu.id}`;
+  }
 })
 </script>
 
@@ -246,6 +339,11 @@ onMounted(async () => {
 .home__header {
   background-color: #409EFF !important;
   color: white !important;
+  padding: 0 20px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .home__header-left {
@@ -271,6 +369,54 @@ onMounted(async () => {
 
 .home__header-menu {
   flex: 1 !important;
+}
+
+.home__tabs-container {
+  flex: 1;
+  padding: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+  box-sizing: border-box;
+}
+
+.home__tabs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.home__tabs .el-tabs__header) {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+:deep(.home__tabs .el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 60px - 41px - 20px);
+}
+
+:deep(.home__tabs .el-tab-pane) {
+  height: calc(100vh - 60px - 41px - 20px);
+  overflow: hidden;
+}
+
+:deep(.home__tabs .el-tab-pane[aria-hidden="true"]) {
+  display: none;
+}
+
+.tab-content {
+  height: calc(100vh - 60px - 41px - 20px);
+  overflow: hidden;
+}
+
+.tab-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 :deep(.el-menu) {

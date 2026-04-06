@@ -8,20 +8,10 @@
  * @example <HomeCard :info="menuItem.info" />
  */
 <template>
-    <div class="page" :class="{ 'fullscreen': isFullscreen }">
+    <div class="page">
         <div class="dashboard-container">
-            <!-- 全屏按钮和时间显示 -->
-            <div class="header-controls">
-                <div class="fullscreen-btn" @click="toggleFullscreen">
-                    <el-icon v-if="!isFullscreen">
-                        <FullScreen />
-                    </el-icon>
-                    <el-icon v-else>
-                        <Crop />
-                    </el-icon>
-                </div>
-            </div>
 
+            
             <!-- 主内容区域 -->
             <div class="main-content">
                 <div class="content-border">
@@ -55,6 +45,8 @@
                                 <ScrollTable v-else-if="item.CHART_TYPE === 'ScrollTable'" :info="item" />
                                 <!-- 排名轮播表 -->
                                 <RankingBoard v-else-if="item.CHART_TYPE === 'RankingBoard'" :info="item" />
+                                <!-- 费用预警组件 -->
+                                <ExpenseAlert v-else-if="item.CHART_TYPE === 'ExpenseAlert'" :info="item" />
                             </FrameBox>
                             <!-- 无边框 -->
                             <template v-else>
@@ -80,14 +72,19 @@
                                 <ScrollTable v-else-if="item.CHART_TYPE === 'ScrollTable'" :info="item" />
                                 <!-- 排名轮播表 -->
                                 <RankingBoard v-else-if="item.CHART_TYPE === 'RankingBoard'" :info="item" />
+                                <!-- 费用预警组件 -->
+                                <ExpenseAlert v-else-if="item.CHART_TYPE === 'ExpenseAlert'" :info="item" />
                             </template>
                         </div>
                     </div>
-                    <div v-else class="loading">
+                    <div v-else-if="loading" class="loading">
                         <el-icon class="loading-icon">
                             <Loading />
                         </el-icon>
                         <span>加载中...</span>
+                    </div>
+                    <div v-else class="no-data">
+                        <el-empty description="暂无数据" />
                     </div>
                 </div>
             </div>
@@ -96,9 +93,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, onUnmounted, onActivated, computed, watch } from "vue";
+import { ref, onMounted, onActivated, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { FullScreen, Crop, Loading } from "@element-plus/icons-vue";
+import { Loading } from "@element-plus/icons-vue";
 
 // 组件名称，用于keep-alive缓存
 defineOptions({ name: 'HomeCard' });
@@ -115,11 +112,10 @@ import VerticalCard from "./components/VerticalCard.vue";
 import BarChartWithInfo from "./components/BarChartWithInfo.vue";
 import DoubleScrollTable from "./components/DoubleScrollTable.vue";
 import PercentageWithRankingsComponent from "./components/PercentageWithRankingsComponent.vue";
+import ExpenseAlert from "./components/ExpenseAlert.vue";
 import api from "@/api/index";
-import { useMenuStore } from "@/stores/menu";
 
 const route = useRoute();
-const menuStore = useMenuStore();
 
 const props = defineProps({
     dataId: {
@@ -132,42 +128,26 @@ const props = defineProps({
     }
 });
 
-const isFullscreen = ref(false);
 const homeData = ref(null);
-const currentTime = ref('');
-
-// 从Pinia store获取菜单信息
-const routeInfo = computed(() => {
-    return menuStore.getCurrentMenu;
-});
+const loading = ref(false);
 
 // 获取parent_id，用于查询首页区块内容
 const parentId = computed(() => {
-    // 优先从Pinia store获取info，然后props.info，最后dataId
-    const info = routeInfo.value || props.info;
-    console.log('routeInfo (from store):', routeInfo.value);
+    // 直接从props.info获取SQL_ID
+    const info = props.info;
     console.log('props.info:', props.info);
     console.log('Using info:', info);
-    return info?.SQL_ID;
+    console.log('info?.SQL_ID:', info?.SQL_ID);
+    console.log('info?.sqlId:', info?.sqlId);
+    console.log('info?.info?.SQL_ID:', info?.info?.SQL_ID);
+    console.log('info?.info?.sqlId:', info?.info?.sqlId);
+    // 尝试从多个可能的位置获取SQL_ID
+    // 首先尝试info.sqlId（从Home.vue传递的菜单对象）
+    // 然后尝试info.info.SQL_ID（原始菜单项数据）
+    const result = info?.sqlId || info?.SQL_ID || info?.info?.SQL_ID || info?.info?.sqlId;
+    console.log('Final parentId:', result);
+    return result;
 });
-
-// 更新当前时间
-const updateCurrentTime = () => {
-    const now = new Date();
-    const options = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-    };
-    currentTime.value = now.toLocaleString('zh-CN', options);
-};
-
-// 启动时间更新定时器
-let timeUpdateInterval = null;
 
 // 处理home数据，添加行列信息（按9行13列网格布局）
 const sortedHomeData = computed(() => {
@@ -220,60 +200,58 @@ const sortedHomeData = computed(() => {
 
 // 调用后台接口获取数据
 const fetchHomeData = async () => {
+    console.log('Starting fetchHomeData');
+    loading.value = true;
+    // 设置请求超时时间
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 15000); // 15秒超时
+    });
+    
     try {
         // 使用parent_id查询首页区块内容
         const params = parentId.value ? { parent_id: parentId.value } : {};
-        const response = await api.executeData('home_list', params);
+        console.log('Fetching home data with params:', params);
+        console.log('Calling api.executeData with sqlId: home_list, params:', params);
+        // 同时执行请求和超时检查
+        const response = await Promise.race([
+            api.executeData('home_list', params),
+            timeoutPromise
+        ]);
+        console.log('Home data response:', response);
         console.log('Home data:', JSON.stringify(response, null, 2));
         homeData.value = response;
     } catch (error) {
         console.error('Failed to fetch home data:', error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        homeData.value = []; // 出错时设置为空数组，避免一直显示加载中
+    } finally {
+        console.log('Setting loading to false');
+        loading.value = false;
     }
-};
-
-const toggleFullscreen = () => {
-    isFullscreen.value = !isFullscreen.value;
-
-    // 通知App组件Home页面的全屏状态变化
-    window.dispatchEvent(new CustomEvent('home-fullscreen-change', { detail: isFullscreen.value }));
-    if (isFullscreen.value) {
-        document.documentElement.requestFullscreen?.();
-    } else {
-        document.exitFullscreen?.();
-    }
-};
-
-// 监听全屏变化事件
-const handleFullscreenChange = () => {
-    isFullscreen.value = !!document.fullscreenElement;
 };
 
 onMounted(() => {
-    updateCurrentTime();
-    timeUpdateInterval = setInterval(updateCurrentTime, 1000);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    // 组件挂载时立即获取数据
+    fetchHomeData();
 });
 
 // 组件激活时触发（keep-alive缓存后）
 onActivated(() => {
-    if (parentId.value) {
-        fetchHomeData();
-    }
-});
-
-onBeforeUnmount(() => {
-    if (timeUpdateInterval) {
-        clearInterval(timeUpdateInterval);
-    }
-    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    fetchHomeData();
 });
 
 // 监听parentId变化，重新获取数据
-watch(parentId, (newVal) => {
-    if (newVal) {
-        fetchHomeData();
-    }
+watch(parentId, () => {
+    console.log('parentId changed, fetching data');
+    fetchHomeData();
 });
+
+// 监听props.info变化，重新获取数据
+watch(() => props.info, () => {
+    console.log('props.info changed, fetching data');
+    fetchHomeData();
+}, { deep: true });
 </script>
 
 <style scoped>
@@ -285,15 +263,6 @@ watch(parentId, (newVal) => {
     position: relative;
 }
 
-.page.fullscreen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 9999;
-}
-
 .dashboard-container {
     width: 100%;
     height: 100%;
@@ -301,80 +270,7 @@ watch(parentId, (newVal) => {
     flex-direction: column;
     box-sizing: border-box;
     position: relative;
-}
-
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 0;
-    position: relative;
-}
-
-.header-decoration-left,
-.header-decoration-right {
-    flex: 1;
-    display: flex;
-    align-items: center;
-}
-
-.header-decoration-left {
-    justify-content: flex-end;
-}
-
-.decoration-line {
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #409EFF, transparent);
-    width: 200px;
-}
-
-.title {
-    font-size: 36px;
-    font-weight: bold;
-    color: #409EFF;
-    text-shadow: 0 0 10px rgba(64, 158, 255, 0.3);
-    margin: 0 40px;
-    letter-spacing: 8px;
-}
-
-.header-controls {
-    position: absolute;
-    top: 30px;
-    right: 40px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    z-index: 100;
-}
-
-.current-time {
-    font-size: 18px;
-    color: #303133;
-    font-family: 'Courier New', monospace;
-}
-
-.fullscreen-btn {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    background: rgba(64, 158, 255, 0.1);
-    border: 1px solid rgba(64, 158, 255, 0.3);
-    border-radius: 8px;
-    transition: all 0.3s ease;
-}
-
-.fullscreen-btn:hover {
-    background: rgba(64, 158, 255, 0.2);
-    border-color: rgba(64, 158, 255, 0.5);
-    transform: scale(1.1);
-}
-
-.fullscreen-btn .el-icon {
-    font-size: 24px;
-    color: #409EFF;
+    overflow: hidden;
 }
 
 .main-content {
@@ -387,24 +283,31 @@ watch(parentId, (newVal) => {
     height: 100%;
     border: 1px solid rgba(64, 158, 255, 0.2);
     border-radius: 12px;
-    padding: 20px;
+    padding: 10px;
     box-sizing: border-box;
     background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .grid-container {
     display: grid;
     grid-template-columns: repeat(13, 1fr);
-    grid-template-rows: repeat(9, 1fr);
-    gap: 20px;
+    grid-template-rows: repeat(9, minmax(0, 1fr));
+    gap: 10px;
     width: 100%;
     height: 100%;
+    overflow: hidden;
 }
 
 .grid-item {
     min-height: 0;
     min-width: 0;
+    max-height: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .loading {
@@ -421,6 +324,13 @@ watch(parentId, (newVal) => {
 .loading-icon {
     font-size: 48px;
     animation: rotate 1s linear infinite;
+}
+
+.no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
 }
 
 @keyframes rotate {

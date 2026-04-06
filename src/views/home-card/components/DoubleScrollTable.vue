@@ -196,8 +196,8 @@ onMounted(() => {
       align-items: center;
       margin-bottom: 8px;
       padding: 8px 12px;
-      background: linear-gradient(135deg, #409EFF, #1976D2);
-      color: #ffffff;
+      background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
+      color: #1976D2;
       border-radius: 8px;
 
       .table-label {
