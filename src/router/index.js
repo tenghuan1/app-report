@@ -34,20 +34,25 @@ const router = createRouter({
 
 // 路由守卫 - 登录验证
 router.beforeEach((to, from, next) => {
+  console.log('路由守卫触发:', { to: to.path, from: from.path, meta: to.meta })
   const userInfo = localStorage.getItem('userInfo')
+  console.log('用户信息:', userInfo)
   
   // 如果是公开页面（如登录页），直接放行
   if (to.meta.public) {
+    console.log('公开页面，直接放行:', to.path)
     next()
     return
   }
   
   // 如果没有登录信息，跳转到登录页
   if (!userInfo) {
+    console.log('没有登录信息，跳转到登录页')
     next('/login')
     return
   }
   
+  console.log('有登录信息，直接放行:', to.path)
   next()
 })
 

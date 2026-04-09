@@ -91,7 +91,7 @@ const fetchDetailData = async () => {
     console.log('DetailDialog data:', response);
     
     if (response && Array.isArray(response) && response.length > 0) {
-      detailData.value = JSON.parse(response[0].DATA || '[]');
+      detailData.value = response[0].DATA ?JSON.parse(response[0].DATA || '[]') : response;
       console.log('DetailDialog data:', detailData.value);
     }
   } catch (error) {

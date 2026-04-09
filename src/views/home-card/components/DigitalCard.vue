@@ -196,7 +196,7 @@ const fetchData = async () => {
     
     // 转换数据格式
     if (response && Array.isArray(response) && response.length > 0) {
-      const data = JSON.parse(response[0].DATA || '[]');
+      const data = response[0].DATA ?JSON.parse(response[0].DATA || '[]') : response;
       
       // 从CHART_CONFIG获取配置
       let chartConfig = null;

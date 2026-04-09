@@ -73,6 +73,8 @@ const handleRowDblClick = (row) => {
 .table-view {
   width: 100%;
   height: 100%;
+  padding-bottom: 8px;
+  box-sizing: border-box;
 
   :deep(.el-table) {
     height: 100%;

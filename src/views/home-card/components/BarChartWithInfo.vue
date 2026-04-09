@@ -243,7 +243,7 @@ const fetchData = async () => {
     console.log('BarChartWithInfo data:', response);
     
     if (response && Array.isArray(response) && response.length > 0) {
-      localData.value = JSON.parse(response[0].DATA || '[]');
+      localData.value = response[0].DATA ?JSON.parse(response[0].DATA || '[]') : response;
       console.log('BarChartWithInfo data:-----', localData.value);
       updateChart();
     }

@@ -190,7 +190,7 @@ const fetchPercentageData = async () => {
     console.log('PercentageWithRankingsComponent percentage data:', response);
     
     if (response && Array.isArray(response) && response.length > 0) {
-      const data = JSON.parse(response[0].DATA || '[]');
+      const data = response[0].DATA ?JSON.parse(response[0].DATA || '[]') : response;
       if (data && data.length > 0) {
         const value = parseFloat(data[0][percentageConfig.value.field]) || 0;
         percentageData.value = value;

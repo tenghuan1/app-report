@@ -160,7 +160,7 @@ const fetchData = async () => {
   try {
     const response = await api.executeData(props.sqlId, {});
     if (response && Array.isArray(response) && response.length > 0) {
-      const data = JSON.parse(response[0].DATA || '[]');
+      const data = response[0].DATA ?JSON.parse(response[0].DATA || '[]') : response;
       if (data.length > 0) {
         // 如果有 fields 配置，使用 fields 计算进度值
         if (props.fields && props.fields.length > 0) {

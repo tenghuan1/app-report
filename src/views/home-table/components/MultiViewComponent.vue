@@ -53,56 +53,68 @@
 */
 <template>
   <div class="multi-view-component">
-    <!-- 过滤器区域 -->
-    <div class="filter-section" v-if="filterConfig.length > 0">
-      <el-form :inline="true" :model="filterForm" class="filter-form">
-        <el-form-item v-for="(filter, index) in filterConfig" :key="index" :label="filter.label">
-          <el-date-picker v-if="filter.type === 'date'" v-model="filterForm[filter.props]"
-            :type="filter.format.includes('HH') ? 'datetime' : 'date'" :format="filter.format"
-            :value-format="filter.format" placeholder="选择日期" :key="`date-${filter.props}`" />
-          <el-input v-else-if="filter.type === 'input'" v-model="filterForm[filter.props]" :placeholder="filter.label"
-            :key="`input-${filter.props}`" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
+    <div class="content-section">
+      <!-- 过滤器区域 -->
+      <div class="filter-section" v-if="showFilterSection">
+        <el-form :inline="true" :model="filterForm" class="filter-form">
+          <!-- 日期区间选择器 -->
+          <el-form-item v-if="isShowDateRange" label="时间区间">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              :format="dateFormat"
+              :value-format="dateFormat"
+              range-separator="至"
+              start-placeholder="开始时间"
+              end-placeholder="结束时间"
+              :key="`daterange-filter`"
+            />
+          </el-form-item>
+          <!-- 文本输入框 -->
+          <el-form-item v-for="(filter, index) in textFilters" :key="`text-${index}`" :label="filter.label">
+            <el-input v-model="filterForm[filter.prop]" :placeholder="filter.placeholder" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleQuery">查询</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
-    <!-- 前台检索区域 -->
-    <div class="frontend-filter-section" v-if="frontendFilterConfig.length > 0">
-      <el-form :inline="true" :model="frontendFilterForm" class="filter-form">
-        <el-form-item v-for="(filter, index) in frontendFilterConfig" :key="index" :label="filter.label">
-          <!-- 输入框 -->
-          <el-input v-if="filter.type === 'input'" v-model="frontendFilterForm[filter.props]"
-            :placeholder="`请输入${filter.label}`" clearable @change="handleFrontendFilterChange"
-            :key="`frontend-input-${filter.props}`" />
-          <!-- 日期选择框 -->
-          <el-date-picker v-else-if="filter.type === 'date'" v-model="frontendFilterForm[filter.props]" type="date"
-            value-format="YYYY-MM-DD" :placeholder="`选择${filter.label}`" clearable @change="handleFrontendFilterChange"
-            :key="`frontend-date-${filter.props}`" />
-          <!-- 日期区间选择框 -->
-          <el-date-picker v-else-if="filter.type === 'dateRange'" v-model="frontendFilterForm[filter.props]"
-            type="daterange" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期"
-            end-placeholder="结束日期" clearable @change="handleFrontendFilterChange"
-            :key="`frontend-daterange-${filter.props}`" />
-        </el-form-item>
-        <el-form-item>
-          <el-button @click="handleFrontendReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
+      <!-- 前台检索区域 -->
+      <div class="frontend-filter-section" v-if="frontendFilterConfig.length > 0">
+        <el-form :inline="true" :model="frontendFilterForm" class="filter-form">
+          <el-form-item v-for="(filter, index) in frontendFilterConfig" :key="index" :label="filter.label">
+            <!-- 输入框 -->
+            <el-input v-if="filter.type === 'input'" v-model="frontendFilterForm[filter.props]"
+              :placeholder="`请输入${filter.label}`" clearable @change="handleFrontendFilterChange"
+              :key="`frontend-input-${filter.props}`" />
+            <!-- 日期选择框 -->
+            <el-date-picker v-else-if="filter.type === 'date'" v-model="frontendFilterForm[filter.props]" type="date"
+              value-format="YYYY-MM-DD" :placeholder="`选择${filter.label}`" clearable @change="handleFrontendFilterChange"
+              :key="`frontend-date-${filter.props}`" />
+            <!-- 日期区间选择框 -->
+            <el-date-picker v-else-if="filter.type === 'dateRange'" v-model="frontendFilterForm[filter.props]"
+              type="daterange" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期"
+              end-placeholder="结束日期" clearable @change="handleFrontendFilterChange"
+              :key="`frontend-daterange-${filter.props}`" />
+          </el-form-item>
+          <el-form-item>
+            <el-button @click="handleFrontendReset">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
-    <el-tabs v-model="activeTab" type="card" @tab-change="handleTabChange">
-      <el-tab-pane v-for="(tab, index) in tabsConfig" :key="index" :label="tab.title" :name="String(index)">
-        <div class="tab-content">
-          <TableView v-if="tab.type === 'table'" :info="tab" :data="chartData" :key="`table-${index}`"
-            @row-dblclick="handleRowDblClick" />
-          <PieChart v-else-if="tab.type === 'pie'" :info="tab" :data="chartData" :key="`pie-${index}`" />
-          <BarChart v-else-if="tab.type === 'bar'" :info="tab" :data="chartData" :key="`bar-${index}`" />
-        </div>
-      </el-tab-pane>
-    </el-tabs>
+      <el-tabs v-model="activeTab" type="card" @tab-change="handleTabChange">
+        <el-tab-pane v-for="(tab, index) in tabsConfig" :key="index" :label="tab.title" :name="String(index)">
+          <div class="tab-content">
+            <TableView v-if="tab.type === 'table'" :info="tab" :data="chartData" :key="`table-${index}`"
+              @row-dblclick="handleRowDblClick" />
+            <PieChart v-else-if="tab.type === 'pie'" :info="tab" :data="chartData" :key="`pie-${index}`" />
+            <BarChart v-else-if="tab.type === 'bar'" :info="tab" :data="chartData" :key="`bar-${index}`" />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
 
     <DetailDialog v-if="showDetailDialog" :visible="showDetailDialog" :sqlId="detailConfig.sqlId"
       :params="{ ...detailParams, ...filterForm }" @close="showDetailDialog = false" />
@@ -134,6 +146,94 @@ const filterForm = ref({});
 const chartData = ref([]);
 const loading = ref(false);
 const frontendFilterForm = ref({});
+const dateRange = ref([]); // 日期区间 [开始时间, 结束时间]
+
+// 是否显示日期区间选择器
+const isShowDateRange = computed(() => {
+  return props.info?.IS_SHOW_DATE_RANGE === '1' || props.info?.IS_SHOW_DATE_RANGE === 1;
+});
+
+// 日期格式，默认 yyyy-MM-dd
+const dateFormat = computed(() => {
+  return props.info?.FORMAT || 'YYYY-MM-DD';
+});
+
+// 是否显示过滤区域
+const showFilterSection = computed(() => {
+  return isShowDateRange.value || textFilters.value.length > 0;
+});
+
+// 文本过滤器配置
+const textFilters = computed(() => {
+  const filterText = props.info?.FILTER_TEXT;
+  if (!filterText) return [];
+  
+  // 使用 | 分割配置
+  const texts = filterText.split('|').map(t => t.trim()).filter(t => t);
+  return texts.map((text, index) => ({
+    label: text,
+    prop: text,
+    placeholder: text
+  }));
+});
+
+// 计算日期函数
+const calculateDate = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
+};
+
+// 格式化日期函数
+const formatDate = (date, format) => {
+  if (!date) return '';
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return format
+    .replace('YYYY', year)
+    .replace('MM', month)
+    .replace('DD', day)
+    .replace('HH', hours)
+    .replace('mm', minutes)
+    .replace('ss', seconds);
+};
+
+// 初始化日期区间
+const initDateRange = () => {
+  if (!isShowDateRange.value) return;
+  
+  const rangeDefault = props.info?.RANGE_DEFAULT;
+  if (!rangeDefault) {
+    // 不维护默认当天
+    const today = new Date();
+    dateRange.value = [
+      formatDate(today, dateFormat.value),
+      formatDate(today, dateFormat.value)
+    ];
+    return;
+  }
+  
+  // 解析默认值配置
+  const ranges = rangeDefault.split('|').map(r => r.trim());
+  if (ranges.length === 2) {
+    const startDays = parseInt(ranges[0]) || 0;
+    const endDays = parseInt(ranges[1]) || 0;
+    
+    const startDate = calculateDate(startDays);
+    const endDate = calculateDate(endDays);
+    
+    dateRange.value = [
+      formatDate(startDate, dateFormat.value),
+      formatDate(endDate, dateFormat.value)
+    ];
+  }
+};
 
 // 直接从props.info获取配置
 const chartConfig = computed(() => {
@@ -238,7 +338,7 @@ const handleTabChange = (tabName) => {
 
 // 原始数据（未经过前台过滤）
 const rawData = ref([]);
-
+debugger
 // 查询数据
 const fetchData = async () => {
   const sqlId = props.info?.SQL_ID;
@@ -246,11 +346,21 @@ const fetchData = async () => {
 
   loading.value = true;
   try {
-    const response = await api.executeData(sqlId, filterForm.value);
+    // 构建查询参数
+    const params = { ...filterForm.value };
+    
+    // 添加日期区间参数
+    if (isShowDateRange.value && dateRange.value && dateRange.value.length === 2) {
+      params.startDate = dateRange.value[0];
+      params.endDate = dateRange.value[1];
+    }
+    
+    console.log('Query params:', params);
+    const response = await api.executeData(sqlId, params);
     console.log('MultiViewComponent data:', response);
 
     if (response && Array.isArray(response) && response.length > 0) {
-      rawData.value = JSON.parse(response[0].DATA || '[]');
+      rawData.value = response[0].DATA ? JSON.parse(response[0].DATA || '[]') : response;
       console.log('Raw data:', rawData.value);
       // 应用前台过滤
       applyFrontendFilter();
@@ -385,9 +495,11 @@ watch(
   { immediate: true, deep: true }
 );
 
+// 切换最大化状态
 onMounted(() => {
   initFilterForm();
   initFrontendFilterForm();
+  initDateRange();
 });
 </script>
 
@@ -397,6 +509,13 @@ onMounted(() => {
     height: 100%;
     display: flex;
     flex-direction: column;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* 内容区域 */
+.content-section {
+    flex: 1;
     overflow: hidden;
     padding: 8px;
 
@@ -461,26 +580,34 @@ onMounted(() => {
       flex-direction: column;
       flex: 1;
       min-height: 0;
+      height: 100%;
 
       .el-tabs__header {
         margin: 0 0 4px 0;
         padding-bottom: 4px;
+        flex-shrink: 0;
       }
 
       .el-tabs__content {
         flex: 1;
         overflow: hidden;
+        height: calc(100% - 40px);
       }
 
       .el-tab-pane {
         height: 100%;
+        overflow: hidden;
       }
     }
 
     .tab-content {
       width: 100%;
       height: 100%;
+      min-height: 200px;
+      max-height: 100%;
       overflow: hidden;
+      padding-bottom: 8px;
+      box-sizing: border-box;
     }
   }
 </style>

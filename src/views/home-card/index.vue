@@ -9,9 +9,7 @@
  */
 <template>
     <div class="page">
-        <div class="dashboard-container">
-
-            
+        <div class="dashboard-container" :class="{ 'maximized': isMaximized }">
             <!-- 主内容区域 -->
             <div class="main-content">
                 <div class="content-border">
@@ -247,6 +245,8 @@ watch(parentId, () => {
     fetchHomeData();
 });
 
+
+
 // 监听props.info变化，重新获取数据
 watch(() => props.info, () => {
     console.log('props.info changed, fetching data');
@@ -271,7 +271,10 @@ watch(() => props.info, () => {
     box-sizing: border-box;
     position: relative;
     overflow: hidden;
+    transition: all 0.3s ease;
 }
+
+
 
 .main-content {
     flex: 1;

@@ -54,7 +54,7 @@
             <!-- 首页卡片 -->
             <HomeCard v-if="tab.component === 'HomeCard'" :info="tab.info" />
             <!-- 首页表格 -->
-            <HomeTable v-else-if="tab.component === 'HomeTable'" :info="tab.info" />
+            <HomeTable v-else-if="tab.component === 'HomeTable'" :info="tab.info.info" />
             <!-- 其他页面 -->
             <div v-else-if="tab.component === 'HomeBi'" class="tab-placeholder">
               <el-empty description="BI 页面开发中..." />

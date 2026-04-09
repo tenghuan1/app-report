@@ -287,7 +287,7 @@ const fetchTextData = async () => {
       try {
         const response = await api.executeData(sqlId, {});
         if (response && Array.isArray(response) && response.length > 0) {
-          const data = JSON.parse(response[0].DATA || '[]');
+          const data = response[0].DATA ?JSON.parse(response[0].DATA || '[]') : response;
           textDataCache.value[sqlId] = data;
         }
       } catch (error) {

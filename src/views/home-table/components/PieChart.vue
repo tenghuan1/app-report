@@ -109,31 +109,36 @@ const updateChart = () => {
   }
 
   // 生成颜色列表
-  const colors = [primaryColor, '#ff7875', '#52c41a', '#faad14', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
+    const colors = [primaryColor, '#ff7875', '#52c41a', '#faad14', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
 
-  // 使用默认文字颜色
-  const labelColor = '#303133';
+    // 使用默认文字颜色
+    const labelColor = '#303133';
 
-  const option = {
-    backgroundColor: 'transparent',
-    animation: true,
-    legend: {
-      data: seriesData.map(item => item.name),
-      textStyle: {
-        color: primaryColor,
-        fontSize: 8
+    // 根据数据量调整布局
+    const dataCount = seriesData.length;
+    const showLegend = dataCount <= 10; // 数据量大于10时不显示图例，避免拥挤
+
+    const option = {
+      backgroundColor: 'transparent',
+      animation: true,
+      legend: {
+        show: showLegend,
+        data: seriesData.map(item => item.name),
+        textStyle: {
+          color: primaryColor,
+          fontSize: 8
+        },
+        right: 0,
+        top: 'center',
+        orient: 'vertical',
+        itemWidth: 10,
+        itemHeight: 10,
+        itemGap: 6,
+        formatter: function(name) {
+          const item = seriesData.find(item => item.name === name);
+          return `${name}: ${item.value}`;
+        }
       },
-      right: 0,
-      top: 'center',
-      orient: 'vertical',
-      itemWidth: 10,
-      itemHeight: 10,
-      itemGap: 6,
-      formatter: function(name) {
-        const item = seriesData.find(item => item.name === name);
-        return `${name}: ${item.value}`;
-      }
-    },
     tooltip: {
       trigger: 'item',
       backgroundColor: bgColor,
@@ -147,8 +152,8 @@ const updateChart = () => {
     series: [{
       name: categoryField,
       type: 'pie',
-      radius: ['45%', '75%'],
-      center: ['35%', '50%'],
+      radius: ['40%', '70%'],
+      center: ['40%', '50%'],
       avoidLabelOverlap: false,
       itemStyle: {
         borderRadius: 4,
@@ -233,6 +238,7 @@ onUnmounted(() => {
 .pie-chart {
   width: 100%;
   height: 100%;
-  min-height: 200px;
+  min-height: 150px;
+  max-height: 100%;
 }
 </style>
